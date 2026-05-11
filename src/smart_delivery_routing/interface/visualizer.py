@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 import folium
@@ -9,6 +10,8 @@ _COLORS = [
     "darkred", "darkblue", "darkgreen", "cadetblue", "pink",
 ]
 
+GeometryFn = Callable[[list[tuple[float, float]]], list[list[float]]]
+
 
 def build_map(
     result: RoutingResult,
@@ -16,6 +19,7 @@ def build_map(
     warehouses: list[Warehouse],
     vehicle_origins: dict[str, str],
     vehicle_destinations: dict[str, str],
+    geometry_fn: GeometryFn | None = None,
 ) -> folium.Map:
     order_by_id = {o.order_id: o for o in orders}
     warehouse_by_id = {w.warehouse_id: w for w in warehouses}
@@ -45,7 +49,7 @@ def build_map(
         if origin_wh:
             o = origin_wh.location
             folium.PolyLine(
-                locations=[[o.lat, o.lng], stop_coords[0]],
+                locations=_road([[o.lat, o.lng], stop_coords[0]], geometry_fn),
                 color=color, weight=2.5, opacity=0.75, dash_array="12 6",
                 tooltip=f"{route.vehicle_id}: depart from {origin_wh.name or origin_wh.warehouse_id}",
             ).add_to(group)
@@ -53,7 +57,7 @@ def build_map(
         # stop → stop
         if len(stop_coords) > 1:
             folium.PolyLine(
-                locations=stop_coords,
+                locations=_road(stop_coords, geometry_fn),
                 color=color, weight=2.5, opacity=0.8,
                 tooltip=f"{route.vehicle_id} — {route.total_distance:.1f} km",
             ).add_to(group)
@@ -62,13 +66,13 @@ def build_map(
         if dest_wh:
             d = dest_wh.location
             folium.PolyLine(
-                locations=[stop_coords[-1], [d.lat, d.lng]],
+                locations=_road([stop_coords[-1], [d.lat, d.lng]], geometry_fn),
                 color=color, weight=2, opacity=0.5, dash_array="3 8",
                 tooltip=f"{route.vehicle_id}: return to {dest_wh.name or dest_wh.warehouse_id}",
             ).add_to(group)
 
-        for stop in route.stops:
-            _add_stop_marker(group, order_by_id[stop.order_id], color)
+        for idx, stop in enumerate(route.stops):
+            _add_stop_marker(group, idx + 1, order_by_id[stop.order_id], color)
 
         group.add_to(fmap)
 
@@ -76,6 +80,12 @@ def build_map(
     folium.LayerControl(collapsed=False).add_to(fmap)
 
     return fmap
+
+
+def _road(coords: list[list[float]], geometry_fn: GeometryFn | None) -> list[list[float]]:
+    if geometry_fn is None:
+        return coords
+    return geometry_fn([(c[0], c[1]) for c in coords])
 
 
 def save_map(fmap: folium.Map, path: str | Path) -> None:
@@ -91,11 +101,12 @@ def _add_warehouse_marker(fmap: folium.Map, warehouse: Warehouse) -> None:
     ).add_to(fmap)
 
 
-def _add_stop_marker(group: folium.FeatureGroup, order: Order, color: str) -> None:
+def _add_stop_marker(group: folium.FeatureGroup, idx: int, order: Order, color: str) -> None:
     popup_html = (
         f"<b>{order.order_id}</b><br>"
         f"Weight: {order.weight} kg<br>"
-        f"Volume: {order.volume} m³"
+        f"Volume: {order.volume} m³<br>"
+        f"Delivery Order: {idx}"
     )
     folium.CircleMarker(
         location=[order.location.lat, order.location.lng],

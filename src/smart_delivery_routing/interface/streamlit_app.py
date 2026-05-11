@@ -17,6 +17,7 @@ from smart_delivery_routing.application.use_cases import (
     optimize_routes,
 )
 from smart_delivery_routing.infrastructure.distance import HaversineDistanceCalculator
+from smart_delivery_routing.infrastructure.osrm import get_road_geometry
 from smart_delivery_routing.infrastructure.repositories.supabase_orders import SupabaseOrderRepository
 from smart_delivery_routing.infrastructure.repositories.supabase_vehicles import SupabaseVehicleRepository
 from smart_delivery_routing.infrastructure.repositories.supabase_warehouses import SupabaseWarehouseRepository
@@ -171,6 +172,7 @@ def _render_map_section(output: OptimizeRoutesOutput, entry: dict) -> None:
         entry["warehouses"],
         entry["vehicle_origins"],
         entry["vehicle_destinations"],
+        geometry_fn=get_road_geometry,
     )
     st_folium(fmap, use_container_width=True, height=800, returned_objects=[])
 
