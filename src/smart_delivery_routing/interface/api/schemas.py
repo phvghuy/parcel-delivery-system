@@ -53,3 +53,14 @@ class SolverResultResponse(BaseModel):
 
 class OptimizeResponse(BaseModel):
     results: list[SolverResultResponse]
+
+
+class AsyncOptimizeResponse(BaseModel):
+    job_id: str
+
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    status: str  # pending | success | failure | expired
+    result: OptimizeResponse | None = None
+    error: str | None = None

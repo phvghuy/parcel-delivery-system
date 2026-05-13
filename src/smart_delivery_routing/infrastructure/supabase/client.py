@@ -1,12 +1,7 @@
-import os
-
-from dotenv import load_dotenv
 from supabase import Client, create_client
 
-load_dotenv()
+from smart_delivery_routing.config import SUPABASE_KEY, SUPABASE_URL
 
 
 def get_supabase_client() -> Client:
-    url = os.environ["SUPABASE_URL"]
-    key = os.environ["SUPABASE_KEY"]
-    return create_client(url, key)
+    return create_client(SUPABASE_URL, SUPABASE_KEY)

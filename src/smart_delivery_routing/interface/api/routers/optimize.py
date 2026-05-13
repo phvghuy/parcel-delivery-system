@@ -1,18 +1,24 @@
 from fastapi import APIRouter, Depends
+from fastapi.security import HTTPBearer
 
 from smart_delivery_routing.application.solvers.nearest_neighbor import NearestNeighborSolver
+from smart_delivery_routing.application.tasks import run_optimize
 from smart_delivery_routing.application.use_cases import OptimizeRoutesInput, OptimizeRoutesOutput, optimize_routes
 from smart_delivery_routing.domain.ports import OrderRepository, RouteSolver, VehicleRepository, WarehouseRepository
+from smart_delivery_routing.config import OSRM_URL
 from smart_delivery_routing.infrastructure.osrm.distance import OSRMDistanceCalculator
+from smart_delivery_routing.infrastructure.redis_client import register_job
 from ..dependencies import get_order_repo, get_vehicle_repo, get_warehouse_repo, require_admin
-from ..schemas import KPIReportResponse, OptimizeResponse, RouteResponse, SolverResultResponse, StopResponse, VehicleKPIResponse
+from ..schemas import AsyncOptimizeResponse, KPIReportResponse, OptimizeResponse, RouteResponse, SolverResultResponse, StopResponse, VehicleKPIResponse
+
+_security = HTTPBearer()
 
 router = APIRouter(tags=["optimize"])
 
 _SOLVERS: list[tuple[str, RouteSolver]] = [
     ("nearest_neighbor", NearestNeighborSolver()),
 ]
-_distance_calculator = OSRMDistanceCalculator(base_url="http://localhost:5000")
+_distance_calculator = OSRMDistanceCalculator(base_url=OSRM_URL)
 
 
 @router.post("/optimize", response_model=OptimizeResponse)
@@ -30,6 +36,16 @@ def optimize(
         order_repo,
         vehicle_repo,
     )
+
+
+@router.post("/optimize/async", response_model=AsyncOptimizeResponse, status_code=202)
+def optimize_async(
+    token=Depends(_security),
+    _: None = Depends(require_admin),
+) -> AsyncOptimizeResponse:
+    task = run_optimize.delay(token.credentials)
+    register_job(task.id)
+    return AsyncOptimizeResponse(job_id=task.id)
 
 
 def _run_all_solvers(

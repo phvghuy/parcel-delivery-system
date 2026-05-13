@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from smart_delivery_routing.application.data_loader import LoadError
 from smart_delivery_routing.application.use_cases import NoPendingOrders, ValidationFailed
 
-from .routers import auth, imports, optimize
+from .routers import auth, imports, jobs, optimize
 
 app = FastAPI(title="Smart Delivery Routing")
 
@@ -20,6 +20,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(imports.router)
 app.include_router(optimize.router)
+app.include_router(jobs.router)
 
 
 @app.exception_handler(ValidationFailed)

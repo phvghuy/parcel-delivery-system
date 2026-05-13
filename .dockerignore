@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.env
+src/smart_delivery_routing/infrastructure/osrm/data/

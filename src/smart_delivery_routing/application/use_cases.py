@@ -40,7 +40,7 @@ def optimize_routes(
     _validate(input.orders, input.vehicles)
     pending_orders = [o for o in input.orders if o.status == "pending"]
     if not pending_orders:
-        raise NoPendingOrders
+        raise NoPendingOrders("No pending orders left.")
 
     distance_matrix = _build_distance_matrix(input.orders, input.warehouses, distance_calculator)
     result = solver.solve(input.orders, input.vehicles, input.warehouses, distance_matrix)
