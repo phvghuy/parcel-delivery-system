@@ -26,4 +26,8 @@ def get_matrix_cache(key: str) -> list[list[float]] | None:
 
 
 def set_matrix_cache(key: str, matrix: list[list[float]]) -> None:
-    _client.setex(f"{_MATRIX_KEY_PREFIX}{key}", _MATRIX_TTL, json.dumps(matrix))
+    try:
+        _client.setex(f"{_MATRIX_KEY_PREFIX}{key}", _MATRIX_TTL, json.dumps(matrix))
+        print(f"[redis] cached distance matrix key={key[:8]}... size={len(matrix)}x{len(matrix[0])}", flush=True)
+    except Exception as e:
+        print(f"[redis] set_matrix_cache failed: {type(e).__name__}: {e}", flush=True)

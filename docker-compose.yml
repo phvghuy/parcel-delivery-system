@@ -10,7 +10,7 @@ services:
       - "5000:5000"
     volumes:
       - ./src/smart_delivery_routing/infrastructure/osrm/data:/data
-    command: osrm-routed --algorithm mld /data/south-vietnam.osrm --max-table-size 200
+    command: osrm-routed --algorithm mld /data/south-vietnam.osrm --max-table-size 2000
 
   api:
     build: .

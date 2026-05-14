@@ -34,14 +34,16 @@ class OSRMDistanceCalculator(DistanceCalculator):
             if data.get("code") != "Ok":
                 raise RuntimeError(data.get("message", data.get("code")))
             matrix = [[d / 1000 for d in row] for row in data["distances"]]
-            set_matrix_cache(key, matrix)
-            return matrix
         except Exception as e:
             import warnings
             warnings.warn(f"OSRM table failed ({type(e).__name__}: {e}), falling back to Haversine.")
-            return self._fallback.compute_matrix(locations)
+            matrix = self._fallback.compute_matrix(locations)
+
+        set_matrix_cache(key, matrix)
+        return matrix
 
 
 def _make_key(locations: list[Location]) -> str:
-    raw = str(tuple((loc.lat, loc.lng) for loc in locations))
+    # sort before hashing so key is stable regardless of DB return order
+    raw = str(tuple(sorted((loc.lat, loc.lng) for loc in locations)))
     return hashlib.md5(raw.encode()).hexdigest()
