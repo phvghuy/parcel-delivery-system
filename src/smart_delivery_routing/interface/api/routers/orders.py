@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from smart_delivery_routing.application import order_use_cases
 from smart_delivery_routing.domain.models import Location, Order, OrderStatus
 from smart_delivery_routing.domain.repositories import OrderRepository
 from ..dependencies import get_order_repo, require_admin, require_driver
-from ..schemas import CreateOrderRequest, OrderResponse, UpdateOrderRequest
+from ..schemas import CreateOrderRequest, OrderResponse, PaginatedOrderResponse, UpdateOrderRequest
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -21,12 +21,25 @@ def _to_response(order: Order) -> OrderResponse:
     )
 
 
-@router.get("", response_model=list[OrderResponse])
+@router.get("", response_model=PaginatedOrderResponse)
 def list_orders(
+    page: int = Query(1, ge=1, description="Page number, starting from 1"),
+    size: int = Query(20, ge=1, le=100, description="Items per page"),
+    status: str | None = Query(None, description="Filter by status: pending, assigned, delivered"),
+    warehouse_id: str | None = Query(None, description="Filter by warehouse ID"),
+    search: str | None = Query(None, description="Search by order ID (partial match)"),
     order_repo: OrderRepository = Depends(get_order_repo),
     _: None = Depends(require_driver),
-) -> list[OrderResponse]:
-    return [_to_response(o) for o in order_use_cases.list_orders(order_repo)]
+) -> PaginatedOrderResponse:
+    status_filter = OrderStatus(status) if status else None
+    result = order_use_cases.list_orders_paginated(page, size, order_repo, status_filter, warehouse_id, search)
+    return PaginatedOrderResponse(
+        items=[_to_response(o) for o in result.items],
+        total=result.total,
+        page=result.page,
+        size=result.size,
+        pages=result.pages,
+    )
 
 
 @router.get("/{order_id}", response_model=OrderResponse)

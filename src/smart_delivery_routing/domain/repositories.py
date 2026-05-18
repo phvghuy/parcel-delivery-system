@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from .models import Order, Vehicle, Warehouse
+from .models import Order, OrderStatus, Vehicle, Warehouse
 
 
 class OrderRepository(ABC):
@@ -9,6 +9,16 @@ class OrderRepository(ABC):
 
     @abstractmethod
     def get_orders(self) -> list[Order]: ...
+
+    @abstractmethod
+    def get_orders_paginated(
+        self,
+        page: int,
+        size: int,
+        status: OrderStatus | None = None,
+        warehouse_id: str | None = None,
+        search: str | None = None,
+    ) -> tuple[list[Order], int]: ...
 
     @abstractmethod
     def get_order_by_id(self, order_id: str) -> Order | None: ...

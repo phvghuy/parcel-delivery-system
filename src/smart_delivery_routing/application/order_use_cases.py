@@ -7,6 +7,18 @@ from smart_delivery_routing.domain.validators import validate_order_fields
 from .routing_use_cases import ValidationFailed
 
 
+@dataclass(frozen=True)
+class PagedOrders:
+    items: list[Order]
+    total: int
+    page: int
+    size: int
+
+    @property
+    def pages(self) -> int:
+        return max(1, -(-self.total // self.size))  # ceiling division
+
+
 # --- Domain exceptions ---
 
 @dataclass(frozen=True)
@@ -53,9 +65,10 @@ class OrderNotDeletable(Exception):
 # --- Status transition rules ---
 # DELIVERED is terminal; PENDING ↔ ASSIGNED is allowed; any → DELIVERED is allowed.
 _ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
-    OrderStatus.PENDING:   {OrderStatus.ASSIGNED, OrderStatus.DELIVERED},
-    OrderStatus.ASSIGNED:  {OrderStatus.PENDING, OrderStatus.DELIVERED},
+    OrderStatus.PENDING:   {OrderStatus.ASSIGNED, OrderStatus.DELIVERED, OrderStatus.CANCELLED},
+    OrderStatus.ASSIGNED:  {OrderStatus.PENDING, OrderStatus.DELIVERED, OrderStatus.CANCELLED},
     OrderStatus.DELIVERED: set(),
+    OrderStatus.CANCELLED: set(),
 }
 
 
@@ -70,6 +83,18 @@ def _check_status_transition(order_id: str, current: OrderStatus, next_: OrderSt
 
 def list_orders(repo: OrderRepository) -> list[Order]:
     return repo.get_orders()
+
+
+def list_orders_paginated(
+    page: int,
+    size: int,
+    repo: OrderRepository,
+    status: OrderStatus | None = None,
+    warehouse_id: str | None = None,
+    search: str | None = None,
+) -> PagedOrders:
+    items, total = repo.get_orders_paginated(page, size, status, warehouse_id, search)
+    return PagedOrders(items=items, total=total, page=page, size=size)
 
 
 def get_order(order_id: str, repo: OrderRepository) -> Order:

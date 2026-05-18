@@ -19,6 +19,7 @@ class OrderStatus(str, Enum):
     PENDING = "pending"
     ASSIGNED = "assigned"
     DELIVERED = "delivered"
+    CANCELLED = "cancelled"
 
 
 @dataclass

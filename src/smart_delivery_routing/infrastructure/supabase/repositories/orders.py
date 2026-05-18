@@ -30,17 +30,41 @@ class SupabaseOrderRepository(OrderRepository):
 
     def get_orders(self) -> list[Order]:
         response = self._client.table("orders").select("*").order("order_id").execute()
-        return [
-            Order(
-                order_id=row["order_id"],
-                warehouse_id=row["warehouse_id"],
-                location=Location(lat=row["dest_lat"], lng=row["dest_lng"]),
-                weight=row["weight"],
-                volume=row["volume"],
-                status=OrderStatus(row["status"]),
-            )
-            for row in response.data
-        ]
+        return [self._to_model(row) for row in response.data]
+
+    @staticmethod
+    def _to_model(row: dict) -> Order:
+        return Order(
+            order_id=row["order_id"],
+            warehouse_id=row["warehouse_id"],
+            location=Location(lat=row["dest_lat"], lng=row["dest_lng"]),
+            weight=row["weight"],
+            volume=row["volume"],
+            status=OrderStatus(row["status"]),
+        )
+
+    def get_orders_paginated(
+        self,
+        page: int,
+        size: int,
+        status: OrderStatus | None = None,
+        warehouse_id: str | None = None,
+        search: str | None = None,
+    ) -> tuple[list[Order], int]:
+        from_idx = (page - 1) * size
+        to_idx = from_idx + size - 1
+
+        query = self._client.table("orders").select("*", count="exact").order("order_id")
+        if status is not None:
+            query = query.eq("status", status.value)
+        if warehouse_id is not None:
+            query = query.eq("warehouse_id", warehouse_id)
+        if search is not None:
+            query = query.ilike("order_id", f"%{search}%")
+
+        response = query.range(from_idx, to_idx).execute()
+        orders = [self._to_model(row) for row in response.data]
+        return orders, response.count or 0
 
     def get_order_by_id(self, order_id: str) -> Order | None:
         response = (
@@ -52,15 +76,7 @@ class SupabaseOrderRepository(OrderRepository):
         )
         if response.data is None:
             return None
-        row = response.data
-        return Order(
-            order_id=row["order_id"],
-            warehouse_id=row["warehouse_id"],
-            location=Location(lat=row["dest_lat"], lng=row["dest_lng"]),
-            weight=row["weight"],
-            volume=row["volume"],
-            status=OrderStatus(row["status"]),
-        )
+        return self._to_model(response.data)
 
     def create_order(self, order: Order) -> Order:
         row = {
@@ -73,15 +89,7 @@ class SupabaseOrderRepository(OrderRepository):
             "status":       order.status.value,
         }
         response = self._client.table("orders").insert(row).execute()
-        created = response.data[0]
-        return Order(
-            order_id=created["order_id"],
-            warehouse_id=created["warehouse_id"],
-            location=Location(lat=created["dest_lat"], lng=created["dest_lng"]),
-            weight=created["weight"],
-            volume=created["volume"],
-            status=OrderStatus(created["status"]),
-        )
+        return self._to_model(response.data[0])
 
     def update_order(self, order: Order) -> Order:
         patch = {
@@ -98,15 +106,7 @@ class SupabaseOrderRepository(OrderRepository):
             .eq("order_id", order.order_id)
             .execute()
         )
-        updated = response.data[0]
-        return Order(
-            order_id=updated["order_id"],
-            warehouse_id=updated["warehouse_id"],
-            location=Location(lat=updated["dest_lat"], lng=updated["dest_lng"]),
-            weight=updated["weight"],
-            volume=updated["volume"],
-            status=OrderStatus(updated["status"]),
-        )
+        return self._to_model(response.data[0])
 
     def delete_order(self, order_id: str) -> None:
         self._client.table("orders").delete().eq("order_id", order_id).execute()
@@ -118,13 +118,4 @@ class SupabaseOrderRepository(OrderRepository):
             .eq("status", OrderStatus.PENDING.value)
             .execute()
         )
-        return [
-            Order(
-                order_id=row["order_id"],
-                warehouse_id=row["warehouse_id"],
-                location=Location(lat=row["dest_lat"], lng=row["dest_lng"]),
-                weight=row["weight"],
-                volume=row["volume"],
-            )
-            for row in response.data
-        ]
+        return [self._to_model(row) for row in response.data]

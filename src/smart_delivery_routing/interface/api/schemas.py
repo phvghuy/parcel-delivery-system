@@ -79,6 +79,14 @@ class OrderResponse(BaseModel):
     status: str
 
 
+class PaginatedOrderResponse(BaseModel):
+    items: list[OrderResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
+
+
 class CreateOrderRequest(BaseModel):
     order_id: str
     warehouse_id: str
