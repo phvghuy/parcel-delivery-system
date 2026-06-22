@@ -16,9 +16,11 @@ from smart_delivery_routing.domain.shipping import (
     ShippingRequestRepository,
     ShippingRequestStatus,
 )
+from smart_delivery_routing.domain.linehaul import HubRepository, ParcelRepository
 from smart_delivery_routing.domain.shipping.queries import ShippingRequestQuery
 from smart_delivery_routing.domain.shared import Address, Load, Location, Money
-from ..dependencies import get_shipping_request_repo, require_admin
+from smart_delivery_routing.domain.tracking import TrackingEventRepository
+from ..dependencies import get_hub_repo, get_parcel_repo, get_shipping_request_repo, get_tracking_event_repo, require_admin
 from ..schemas import (
     CreateShippingRequestRequest,
     CursorPagedShippingRequestResponse,
@@ -88,7 +90,10 @@ def get_shipping_request(
 @router.post("", response_model=ShippingRequestResponse, status_code=201)
 def create_shipping_request(
     body: CreateShippingRequestRequest,
-    repo: ShippingRequestRepository = Depends(get_shipping_request_repo),
+    shipping_repo: ShippingRequestRepository = Depends(get_shipping_request_repo),
+    hub_repo: HubRepository = Depends(get_hub_repo),
+    parcel_repo: ParcelRepository = Depends(get_parcel_repo),
+    tracking_repo: TrackingEventRepository = Depends(get_tracking_event_repo),
     _: None = Depends(require_admin),
 ) -> ShippingRequestResponse:
     cod_amount = None
@@ -115,7 +120,9 @@ def create_shipping_request(
     )
 
     try:
-        created = shipping_use_cases.create_shipping_request(request, repo)
+        created = shipping_use_cases.create_shipping_request(
+            request, shipping_repo, hub_repo, parcel_repo, tracking_repo
+        )
     except ValidationFailed as e:
         raise HTTPException(status_code=422, detail=str(e))
     return _to_response(created)

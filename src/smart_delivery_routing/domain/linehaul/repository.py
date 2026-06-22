@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from uuid import UUID
 
 from .models import Hub, Parcel, Truck, TruckTrip, TruckTripItem
 from .queries import HubQuery, ParcelQuery, TruckQuery, TruckTripQuery
-from ..shared import Load
+from ..shared import Load, Location
 
 
 class ParcelRepository(ABC):
@@ -36,6 +38,9 @@ class HubRepository(ABC):
 
     @abstractmethod
     def delete(self, hub_id: UUID) -> None: ...
+
+    @abstractmethod
+    def find_nearest(self, location: Location, limit: int = 1) -> list[Hub]: ...
 
 
 class TruckRepository(ABC):

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -6,6 +8,9 @@ from supabase import Client
 from smart_delivery_routing.domain.linehaul import Hub, HubRepository, HubStatus, HubType
 from smart_delivery_routing.domain.shared import Address, Location
 from smart_delivery_routing.domain.linehaul import HubQuery
+from smart_delivery_routing.infrastructure.haversine import HaversineDistanceCalculator
+
+_calculator = HaversineDistanceCalculator()
 
 
 class SupabaseHubRepository(HubRepository):
@@ -66,6 +71,23 @@ class SupabaseHubRepository(HubRepository):
         self._client.table("hubs").update(
             {"deleted_at": datetime.now(timezone.utc).isoformat()}
         ).eq("id", str(hub_id)).execute()
+
+    def find_nearest(self, location: Location, limit: int = 1) -> list[Hub]:
+        response = (
+            self._client.table("hubs")
+            .select("*")
+            .eq("status", HubStatus.ACTIVE.value)
+            .is_("deleted_at", "null")
+            .execute()
+        )
+        hubs = [self._to_model(row) for row in response.data]
+        if not hubs:
+            return []
+        all_locations = [location] + [h.address.location for h in hubs]
+        matrix = _calculator.compute_matrix(all_locations)
+        distances = matrix[0][1:]
+        ranked = sorted(enumerate(distances), key=lambda x: x[1])
+        return [hubs[i] for i, _ in ranked[:limit]]
 
     @staticmethod
     def _to_row(hub: Hub) -> dict:

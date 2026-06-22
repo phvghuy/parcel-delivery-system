@@ -2,18 +2,9 @@ import sys
 import uvicorn
 
 
-# def run_api() -> None:
-#     uvicorn.run(
-#         "smart_delivery_routing.interface.api:app",
-#         host="0.0.0.0",
-#         port=8000,
-#         reload=True,
-#     )
-
-
 def run_api() -> None:
     uvicorn.run(
-        "ecom_logistics.app.api:app",
+        "smart_delivery_routing.interface.api:app",
         host="0.0.0.0",
         port=8000,
         reload=True,
