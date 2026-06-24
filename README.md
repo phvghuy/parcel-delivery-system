@@ -34,7 +34,7 @@ infrastructure/
   ├── supabase/       ← Concrete repository implementations (PostgreSQL via Supabase)
   ├── haversine.py    ← Distance matrix calculator for hub selection
   ├── telemetry.py    ← OpenTelemetry setup (traces exported to Jaeger)
-  └── celery/         ← Async task: automatic delivery route generation
+  └── celery/         ← Async tasks: process_shipping_request, create_delivery_routes
 ```
 
 **Dependency rule:** Domain has no knowledge of infrastructure. Infrastructure implements abstract repository interfaces defined by the domain. Routers receive interfaces via `Depends()` — never concrete classes. All wiring is centralized in `dependencies.py`.
@@ -46,7 +46,10 @@ infrastructure/
 ```
 [Seller creates ShippingRequest]
             │
-            ▼
+            ▼ returns immediately
+        CREATED
+            │
+            ▼ Celery task (async)
   System finds nearest hubs (Haversine)
             │
       ┌─────┴─────┐
@@ -86,8 +89,8 @@ Every status transition creates a `TrackingEvent` recording the source location 
 
 ### Shipping
 - Full request validation: addresses, load (weight + volume), receiver info, COD amount
-- Automatic hub selection using Haversine distance across all active hubs
-- Parcel creation and ACCEPTED/REJECTED status update handled atomically in a single use case
+- `POST /shipping-requests` returns immediately with `CREATED` status — processing is non-blocking
+- A Celery task picks up the request asynchronously: finds the nearest origin and destination hubs, creates the parcel, then updates status to `ACCEPTED` or `REJECTED`
 
 ### Linehaul
 - Hub management (types: sorting center, local hub)
@@ -167,7 +170,7 @@ src/smart_delivery_routing/
 |---|---|---|---|
 | POST | `/auth/login` | — | Sign in, returns JWT |
 | GET | `/shipping-requests` | Admin | List requests (cursor pagination) |
-| POST | `/shipping-requests` | Admin | Create request → auto ACCEPTED/REJECTED |
+| POST | `/shipping-requests` | Admin | Create request → returns `CREATED`, processing handled async by Celery |
 | GET | `/shipping-requests/{id}` | Admin | Get request detail |
 | PATCH | `/shipping-requests/{id}/status` | Admin | Manual status update |
 | GET | `/parcels` | Admin | List parcels |
@@ -250,8 +253,8 @@ GitHub Actions runs two parallel jobs on every push to `main`:
 The system integrates **OpenTelemetry + Jaeger** for distributed tracing:
 
 - Every HTTP request automatically generates a root span (FastAPI auto-instrumentation)
-- Key use case steps are wrapped in child spans: hub nearest-neighbor lookup, parcel creation, batch linehaul dispatch
-- Traces are exported to Jaeger via gRPC (OTLP protocol)
+- The Celery worker also exports traces — `process_shipping_request` creates a root span with three child spans: `hub.find_nearest_origin`, `hub.find_nearest_destination`, `parcel.create`
+- Traces are exported to Jaeger via gRPC (OTLP protocol) from both the API and worker containers
 - View traces at [http://localhost:16686](http://localhost:16686) after running `docker compose up`
 
 ---
@@ -265,3 +268,5 @@ The system integrates **OpenTelemetry + Jaeger** for distributed tracing:
 **Fake repository pattern in tests** — Unit tests use in-memory implementations of abstract repositories. No Supabase or Redis required. Tests that need external services are marked `@pytest.mark.integration` and skipped in CI.
 
 **Centralized DI wiring** — `dependencies.py` is the only file that knows `SupabaseHubRepository` exists. Routers depend only on `HubRepository` (the abstract interface). Swapping the database layer requires changes in exactly one file.
+
+**Async shipping pipeline via Celery** — `POST /shipping-requests` validates and persists the request, then enqueues a Celery task via the abstract `JobService` interface. The router never imports Celery directly, keeping the interface layer decoupled from infrastructure. The worker runs `process_shipping_request` independently: finds hubs, creates the parcel, and updates the status. This separation means the API response time is not affected by hub lookup or parcel creation latency.
