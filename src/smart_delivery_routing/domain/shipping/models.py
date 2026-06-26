@@ -17,6 +17,7 @@ class ShippingRequestStatus(IntEnum):
     ACCEPTED = 2
     REJECTED = 3
     CANCELLED = 4
+    FAILED = 5
 
 
 class ServiceLevel(IntEnum):

@@ -11,7 +11,11 @@ _MATRIX_TTL = 86400 * 7  # 7 days
 _JOB_KEY_PREFIX = "job:"
 _MATRIX_KEY_PREFIX = "distance-matrix:"
 _HUB_CACHE_KEY = "hubs:active_list"
-_HUB_TTL = 86400 # 24 hours
+_HUB_TTL = 300 # 5 mins
+
+
+def health_check_redis() -> bool:
+    return bool(_client.ping())
 
 
 def get_hub_cache() -> list[dict] | None:

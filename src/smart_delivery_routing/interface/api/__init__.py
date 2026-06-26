@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from smart_delivery_routing.infrastructure.firebase import initialize_firebase
 from smart_delivery_routing.infrastructure.telemetry import setup_telemetry
 
-from .routers import auth, delivery_routes, drivers, hubs, notifications, parcels, shipping_requests, truck_trips, trucks, ws
+from .routers import auth, delivery_routes, drivers, hubs, notifications, parcels, shipping_requests, truck_trips, trucks, ws, health
 
 initialize_firebase()
 
@@ -23,6 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(drivers.router)
 app.include_router(delivery_routes.router)

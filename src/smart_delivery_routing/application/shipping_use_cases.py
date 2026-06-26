@@ -28,7 +28,7 @@ class ValidationFailed(Exception):
         return "; ".join(f"{e.field}: {e.reason}" for e in self.errors)
 
 
-@dataclass(frozen=True)
+@dataclass
 class ShippingRequestNotFound(Exception):
     request_id: UUID
 
@@ -51,7 +51,7 @@ class InvalidStatusTransition(Exception):
 
 # Các chuyển trạng thái hợp lệ
 _ALLOWED_TRANSITIONS: dict[ShippingRequestStatus, set[ShippingRequestStatus]] = {
-    ShippingRequestStatus.CREATED:   {ShippingRequestStatus.ACCEPTED, ShippingRequestStatus.REJECTED, ShippingRequestStatus.CANCELLED},
+    ShippingRequestStatus.CREATED:   {ShippingRequestStatus.ACCEPTED, ShippingRequestStatus.REJECTED, ShippingRequestStatus.CANCELLED, ShippingRequestStatus.FAILED},
     ShippingRequestStatus.ACCEPTED:  {ShippingRequestStatus.REJECTED, ShippingRequestStatus.CANCELLED},
     ShippingRequestStatus.REJECTED:  set(),
     ShippingRequestStatus.CANCELLED: set(),

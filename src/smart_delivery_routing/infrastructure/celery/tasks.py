@@ -1,6 +1,8 @@
 from datetime import datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
+from httpx import TimeoutException, NetworkError, HTTPStatusError
+from celery import Task
 
 from smart_delivery_routing.application.delivery_route_use_cases import create_delivery_routes
 from smart_delivery_routing.application import shipping_use_cases
@@ -19,20 +21,47 @@ from smart_delivery_routing.infrastructure.supabase.repositories.parcels import 
 from smart_delivery_routing.infrastructure.supabase.repositories.shipping_requests import SupabaseShippingRequestRepository
 from smart_delivery_routing.infrastructure.supabase.repositories.tracking_events import SupabaseTrackingEventRepository
 
+from smart_delivery_routing.domain.shipping import ShippingRequestStatus
+
+
 _VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 _distance_calculator = OSRMDistanceCalculator(base_url=OSRM_URL)
 
 
-@celery_app.task(name="handle_shipping_request")
-def handle_shipping_request(request_id: str) -> None:
-    client = get_supabase_service_client()
-    shipping_use_cases.process_shipping_request(
-        request_id=UUID(request_id),
-        shipping_repo=SupabaseShippingRequestRepository(client),
-        hub_repo=SupabaseHubRepository(client),
-        parcel_repo=SupabaseParcelRepository(client),
-        tracking_repo=SupabaseTrackingEventRepository(client),
+class ShippingRequestTask(Task):
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        request_id = UUID(args[0])
+        client = get_supabase_service_client()
+        shipping_use_cases.update_shipping_status(
+            request_id=request_id,
+            new_status=ShippingRequestStatus.FAILED,
+            repo=SupabaseShippingRequestRepository(client),
+        )
+
+
+@celery_app.task(
+    name="handle_shipping_request", 
+    autoretry_for=(TimeoutException, NetworkError),
+    bind=True,
+    retry_kwargs={'max_retries': 5},
+    default_retry_delay=10*60,
+    base=ShippingRequestTask
     )
+def handle_shipping_request(self, request_id: str) -> None:
+    try:
+        client = get_supabase_service_client()
+        shipping_use_cases.process_shipping_request(
+            request_id=UUID(request_id),
+            shipping_repo=SupabaseShippingRequestRepository(client),
+            hub_repo=SupabaseHubRepository(client),
+            parcel_repo=SupabaseParcelRepository(client),
+            tracking_repo=SupabaseTrackingEventRepository(client),
+        )
+    except HTTPStatusError as e:
+        if e.response.status_code >= 500:
+            raise self.retry(exc=e)
+        else:
+            raise
 
 
 @celery_app.task(name="create_delivery_routes")
