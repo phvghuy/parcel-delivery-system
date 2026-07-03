@@ -121,31 +121,40 @@ def depart_trip(
     truck_repo: TruckRepository,
     tracking_repo: TrackingEventRepository,
 ) -> TruckTrip:
-    trip = _get_or_raise(trip_id, trip_repo)
-    if trip.status != TruckTripStatus.PLANNED:
-        raise TruckTripCannotDepart(trip_id=trip_id, status=trip.status)
+    with tracer.start_as_current_span("truck_trip/depart"):
+        trip = _get_or_raise(trip_id, trip_repo)
 
-    now = datetime.now(timezone.utc)
+        span = trace.get_current_span()
+        span.set_attribute("trip.id", str(trip.id))
+        span.set_attribute("trip.truck_id", str(trip.truck_id))
 
-    updated_trip = replace(trip, status=TruckTripStatus.DEPARTED, actual_departure_time=now)
-    trip_repo.update(updated_trip)
+        if trip.status != TruckTripStatus.PLANNED:
+            raise TruckTripCannotDepart(trip_id=trip_id, status=trip.status)
 
-    truck: Truck | None = truck_repo.get_by_id(trip.truck_id)
-    if truck is not None:
-        truck_repo.update(replace(truck, status=TruckStatus.IN_TRANSIT))
+        now = datetime.now(timezone.utc)
 
-    items = item_repo.list_by_trip_id(trip_id)
-    for item in items:
-        try:
-            dispatch_linehaul(
-                parcel_id=item.parcel_id,
-                truck_trip_id=trip_id,
-                truck_plate=trip.truck_plate_number,
-                parcel_repo=parcel_repo,
-                tracking_repo=tracking_repo,
-            )
-        except Exception:
-            pass  # best-effort: không để 1 parcel lỗi block toàn bộ chuyến
+        updated_trip = replace(trip, status=TruckTripStatus.DEPARTED, actual_departure_time=now)
+        trip_repo.update(updated_trip)
+
+        truck: Truck | None = truck_repo.get_by_id(trip.truck_id)
+        if truck is not None:
+            truck_repo.update(replace(truck, status=TruckStatus.IN_TRANSIT))
+
+        items = item_repo.list_by_trip_id(trip_id)
+
+        span.set_attribute("parcel_count", len(items))
+
+        for item in items:
+            try:
+                dispatch_linehaul(
+                    parcel_id=item.parcel_id,
+                    truck_trip_id=trip_id,
+                    truck_plate=trip.truck_plate_number,
+                    parcel_repo=parcel_repo,
+                    tracking_repo=tracking_repo,
+                )
+            except Exception:
+                pass  # best-effort: không để 1 parcel lỗi block toàn bộ chuyến
 
     return updated_trip
 
@@ -170,31 +179,40 @@ def arrive_trip(
     truck_repo: TruckRepository,
     tracking_repo: TrackingEventRepository,
 ) -> TruckTrip:
-    trip = _get_or_raise(trip_id, trip_repo)
-    if trip.status != TruckTripStatus.DEPARTED:
-        raise TruckTripCannotArrive(trip_id=trip_id, status=trip.status)
+    with tracer.start_as_current_span("truck_trip/arrive"):
+        trip = _get_or_raise(trip_id, trip_repo)
 
-    now = datetime.now(timezone.utc)
+        span = trace.get_current_span()
+        span.set_attribute("trip.id", str(trip.id))
+        span.set_attribute("trip.destination_hub_id", str(trip.destination_hub_id))
 
-    updated_trip = replace(trip, status=TruckTripStatus.ARRIVED, actual_arrival_time=now)
-    trip_repo.update(updated_trip)
+        if trip.status != TruckTripStatus.DEPARTED:
+            raise TruckTripCannotArrive(trip_id=trip_id, status=trip.status)
 
-    truck: Truck | None = truck_repo.get_by_id(trip.truck_id)
-    if truck is not None:
-        truck_repo.update(replace(truck, status=TruckStatus.AVAILABLE))
+        now = datetime.now(timezone.utc)
 
-    items = item_repo.list_by_trip_id(trip_id)
-    for item in items:
-        try:
-            arrive_at_destination_hub(
-                parcel_id=item.parcel_id,
-                hub_id=trip.destination_hub_id,
-                hub_name=trip.destination_hub_name,
-                parcel_repo=parcel_repo,
-                tracking_repo=tracking_repo,
-            )
-        except Exception:
-            pass  # best-effort
+        updated_trip = replace(trip, status=TruckTripStatus.ARRIVED, actual_arrival_time=now)
+        trip_repo.update(updated_trip)
+
+        truck: Truck | None = truck_repo.get_by_id(trip.truck_id)
+        if truck is not None:
+            truck_repo.update(replace(truck, status=TruckStatus.AVAILABLE))
+
+        items = item_repo.list_by_trip_id(trip_id)
+
+        span.set_attribute("parcel_count", len(items))
+        
+        for item in items:
+            try:
+                arrive_at_destination_hub(
+                    parcel_id=item.parcel_id,
+                    hub_id=trip.destination_hub_id,
+                    hub_name=trip.destination_hub_name,
+                    parcel_repo=parcel_repo,
+                    tracking_repo=tracking_repo,
+                )
+            except Exception:
+                pass  # best-effort
 
     return updated_trip
 

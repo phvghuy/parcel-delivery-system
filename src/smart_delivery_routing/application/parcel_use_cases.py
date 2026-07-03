@@ -3,12 +3,16 @@ import json
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
+from opentelemetry import trace
 
 from smart_delivery_routing.domain.linehaul import Parcel, ParcelQuery, ParcelRepository, ParcelStatus
 from smart_delivery_routing.domain.shared import Load
 from smart_delivery_routing.domain.tracking import (
     TrackingEvent, TrackingEventRepository, TrackingLocation, TrackingLocationType,
 )
+
+
+tracer = trace.get_tracer(__name__)
 
 
 # ── Exceptions ───────────────────────────────────────────────────────────────
@@ -89,29 +93,35 @@ def _transition(
     parcel_repo: ParcelRepository,
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
-    if new_status not in _ALLOWED_TRANSITIONS[parcel.status]:
-        raise InvalidParcelStatusTransition(
-            parcel_id=parcel.id,
-            from_status=parcel.status,
-            to_status=new_status,
+    with tracer.start_as_current_span("parcel/transition"):
+        span = trace.get_current_span()
+        span.set_attribute("parcel.id", str(parcel.id))
+        span.set_attribute("parcel.from_status", parcel.status.value)
+        span.set_attribute("parcel.to_status", new_status.value)
+
+        if new_status not in _ALLOWED_TRANSITIONS[parcel.status]:
+            raise InvalidParcelStatusTransition(
+                parcel_id=parcel.id,
+                from_status=parcel.status,
+                to_status=new_status,
+            )
+        now = datetime.now(timezone.utc)
+        updated = replace(
+            parcel,
+            status=new_status,
+            current_hub_id=new_current_hub_id,
+            current_hub_name=new_current_hub_name,
+            updated_at=now,
         )
-    now = datetime.now(timezone.utc)
-    updated = replace(
-        parcel,
-        status=new_status,
-        current_hub_id=new_current_hub_id,
-        current_hub_name=new_current_hub_name,
-        updated_at=now,
-    )
-    parcel_repo.update(updated)
-    tracking_repo.create(TrackingEvent(
-        id=uuid4(),
-        parcel_id=parcel.id,
-        status=new_status,
-        location=location,
-        note=note,
-        created_at=now,
-    ))
+        parcel_repo.update(updated)
+        tracking_repo.create(TrackingEvent(
+            id=uuid4(),
+            parcel_id=parcel.id,
+            status=new_status,
+            location=location,
+            note=note,
+            created_at=now,
+        ))
     # Return locally-built object để giữ nguyên hub names (update response không có JOIN)
     return updated
 
