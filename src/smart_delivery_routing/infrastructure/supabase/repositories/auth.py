@@ -1,5 +1,5 @@
 from smart_delivery_routing.infrastructure.supabase.client import get_supabase_client
-from smart_delivery_routing.config import SUPABASE_JWT_SECRET, SUPABASE_URL
+from smart_delivery_routing.config import SUPABASE_URL
 from jwt import PyJWKClient
 import jwt
 

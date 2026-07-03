@@ -17,7 +17,7 @@ tracer = trace.get_tracer(__name__)
 
 # ── Exceptions ───────────────────────────────────────────────────────────────
 
-@dataclass(frozen=True)
+@dataclass
 class ParcelNotFound(Exception):
     parcel_id: UUID
 
@@ -25,7 +25,7 @@ class ParcelNotFound(Exception):
         return f"Parcel '{self.parcel_id}' not found."
 
 
-@dataclass(frozen=True)
+@dataclass
 class InvalidParcelStatusTransition(Exception):
     parcel_id: UUID
     from_status: ParcelStatus

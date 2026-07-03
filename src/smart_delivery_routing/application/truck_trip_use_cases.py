@@ -20,7 +20,7 @@ tracer = trace.get_tracer(__name__)
 
 # ── Exceptions ────────────────────────────────────────────────────────────────
 
-@dataclass(frozen=True)
+@dataclass
 class TruckTripNotFound(Exception):
     trip_id: UUID
 
@@ -28,7 +28,7 @@ class TruckTripNotFound(Exception):
         return f"TruckTrip '{self.trip_id}' not found."
 
 
-@dataclass(frozen=True)
+@dataclass
 class ValidationFailed(Exception):
     errors: list[ValidationError]
 
@@ -92,7 +92,7 @@ def list_truck_trips(query: TruckTripQuery, repo: TruckTripRepository) -> PagedT
     return PagedTruckTrips(items=items, total=total, page=query.page, size=query.page_size)
 
 
-@dataclass(frozen=True)
+@dataclass
 class TruckTripNotDeletable(Exception):
     trip_id: UUID
     status: TruckTripStatus
@@ -101,7 +101,7 @@ class TruckTripNotDeletable(Exception):
         return f"TruckTrip '{self.trip_id}' cannot be deleted in status '{self.status.name}'."
 
 
-@dataclass(frozen=True)
+@dataclass
 class TruckTripCannotDepart(Exception):
     trip_id: UUID
     status: TruckTripStatus
@@ -159,7 +159,7 @@ def depart_trip(
     return updated_trip
 
 
-@dataclass(frozen=True)
+@dataclass
 class TruckTripCannotArrive(Exception):
     trip_id: UUID
     status: TruckTripStatus
@@ -226,7 +226,7 @@ def delete_truck_trip(trip_id: UUID, repo: TruckTripRepository) -> None:
 
 # ── TruckTripItem exceptions ──────────────────────────────────────────────────
 
-@dataclass(frozen=True)
+@dataclass
 class TruckTripItemNotFound(Exception):
     item_id: UUID
 
@@ -234,7 +234,7 @@ class TruckTripItemNotFound(Exception):
         return f"TruckTripItem '{self.item_id}' not found."
 
 
-@dataclass(frozen=True)
+@dataclass
 class ParcelNotFound(Exception):
     parcel_id: UUID
 
@@ -242,7 +242,7 @@ class ParcelNotFound(Exception):
         return f"Parcel '{self.parcel_id}' not found."
 
 
-@dataclass(frozen=True)
+@dataclass
 class InvalidParcelForTrip(Exception):
     parcel_id: UUID
     reason: str
@@ -251,7 +251,7 @@ class InvalidParcelForTrip(Exception):
         return f"Parcel '{self.parcel_id}' cannot be added to trip: {self.reason}."
 
 
-@dataclass(frozen=True)
+@dataclass
 class CapacityExceeded(Exception):
     trip_id: UUID
     required_weight: float
@@ -268,7 +268,7 @@ class CapacityExceeded(Exception):
         return f"TruckTrip '{self.trip_id}' capacity exceeded: {', '.join(parts)}."
 
 
-@dataclass(frozen=True)
+@dataclass
 class TruckTripItemNotRemovable(Exception):
     trip_id: UUID
     trip_status: TruckTripStatus
