@@ -24,6 +24,8 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.54b0",  # Tự động tạo span cho mỗi HTTP request
     "opentelemetry-instrumentation-httpx>=0.54b0",    # Tự động tạo span cho mỗi HTTP call ra ngoài
     "opentelemetry-exporter-otlp-proto-grpc>=1.33.0", # Gửi traces tới Jaeger qua gRPC
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.0",
 ]
 
 [tool.setuptools.packages.find]

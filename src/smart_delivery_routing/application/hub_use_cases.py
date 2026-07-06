@@ -37,35 +37,35 @@ class HubNotFound(Exception):
 
 # --- Use cases ---
 
-def list_hubs(query: HubQuery, repo: HubRepository) -> PagedHubs:
-    items, total = repo.list(query)
+async def list_hubs(query: HubQuery, repo: HubRepository) -> PagedHubs:
+    items, total = await repo.list(query)
     return PagedHubs(items=items, total=total, page=query.page, size=query.page_size)
 
 
-def get_hub(hub_id: UUID, repo: HubRepository) -> Hub:
-    hub = repo.get_by_id(hub_id)
+async def get_hub(hub_id: UUID, repo: HubRepository) -> Hub:
+    hub = await repo.get_by_id(hub_id)
     if hub is None:
         raise HubNotFound(hub_id=hub_id)
     return hub
 
 
-def create_hub(hub: Hub, repo: HubRepository) -> Hub:
+async def create_hub(hub: Hub, repo: HubRepository) -> Hub:
     errors = validate_hub(hub)
     if errors:
         raise ValidationFailed(errors=errors)
-    return repo.create(hub)
+    return await repo.create(hub)
 
 
-def update_hub(hub_id: UUID, updated: Hub, repo: HubRepository) -> Hub:
+async def update_hub(hub_id: UUID, updated: Hub, repo: HubRepository) -> Hub:
     errors = validate_hub(updated)
     if errors:
         raise ValidationFailed(errors=errors)
-    if repo.get_by_id(hub_id) is None:
+    if await repo.get_by_id(hub_id) is None:
         raise HubNotFound(hub_id=hub_id)
-    return repo.update(updated)
+    return await repo.update(updated)
 
 
-def delete_hub(hub_id: UUID, repo: HubRepository) -> None:
-    if repo.get_by_id(hub_id) is None:
+async def delete_hub(hub_id: UUID, repo: HubRepository) -> None:
+    if await repo.get_by_id(hub_id) is None:
         raise HubNotFound(hub_id=hub_id)
-    repo.delete(hub_id)
+    await repo.delete(hub_id)

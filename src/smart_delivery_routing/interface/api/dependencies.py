@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
 from supabase import Client
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from smart_delivery_routing.application.services import AuthService, JobService, NotificationService
 from smart_delivery_routing.infrastructure.job_service import CeleryRedisJobService
@@ -25,6 +26,8 @@ from smart_delivery_routing.infrastructure.supabase.repositories.truck_trip_item
 from smart_delivery_routing.infrastructure.supabase.repositories.truck_trips import SupabaseTruckTripRepository
 from smart_delivery_routing.infrastructure.supabase.repositories.shipping_requests import SupabaseShippingRequestRepository
 from smart_delivery_routing.infrastructure.supabase.repositories.tracking_events import SupabaseTrackingEventRepository
+from smart_delivery_routing.infrastructure.sqlalchemy.engine import get_async_session
+from smart_delivery_routing.infrastructure.sqlalchemy.repositories.hubs import SQLAlchemyHubRepository
 
 _auth_service = SupabaseAuthService()
 _job_service = CeleryRedisJobService()
@@ -63,8 +66,12 @@ def get_truck_repo(token=Depends(_security)) -> TruckRepository:
     return SupabaseTruckRepository(_authed_client(token.credentials))
 
 
-def get_hub_repo(token=Depends(_security)) -> HubRepository:
-    return SupabaseHubRepository(_authed_client(token.credentials))
+# def get_hub_repo(token=Depends(_security)) -> HubRepository:
+#     return SupabaseHubRepository(_authed_client(token.credentials))
+
+
+def get_hub_repo(session: AsyncSession = Depends(get_async_session)) -> HubRepository:
+    return SQLAlchemyHubRepository(session)
 
 
 def get_driver_repo(token=Depends(_security)) -> DriverRepository:

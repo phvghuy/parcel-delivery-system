@@ -1,14 +1,27 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from smart_delivery_routing.infrastructure.firebase import initialize_firebase
+from smart_delivery_routing.infrastructure.sqlalchemy.engine import async_engine, engine
 from smart_delivery_routing.infrastructure.telemetry import setup_telemetry
 
 from .routers import auth, delivery_routes, drivers, hubs, notifications, parcels, shipping_requests, truck_trips, trucks, ws, health
 
 initialize_firebase()
 
-app = FastAPI(title="Smart Delivery Routing")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    with engine.connect():
+        pass
+    async with async_engine.connect():
+        pass
+    yield
+
+
+app = FastAPI(title="Smart Delivery Routing", lifespan=lifespan)
 
 setup_telemetry(app)
 

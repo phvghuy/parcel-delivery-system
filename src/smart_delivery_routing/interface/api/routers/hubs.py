@@ -26,7 +26,7 @@ def _to_response(hub: Hub) -> HubResponse:
 
 
 @router.get("", response_model=PaginatedHubResponse)
-def list_hubs(
+async def list_hubs(
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     search: str | None = Query(None, description="Tìm theo tên, địa chỉ. Nhiều từ khóa cách nhau bằng dấu phẩy"),
@@ -44,7 +44,7 @@ def list_hubs(
         types=[HubType(t) for t in types] if types else None,
         include_deleted=include_deleted,
     )
-    result = hub_use_cases.list_hubs(query, hub_repo)
+    result = await hub_use_cases.list_hubs(query, hub_repo)
     return PaginatedHubResponse(
         items=[_to_response(h) for h in result.items],
         total=result.total,
@@ -55,20 +55,20 @@ def list_hubs(
 
 
 @router.get("/{hub_id}", response_model=HubResponse)
-def get_hub(
+async def get_hub(
     hub_id: str,
     hub_repo: HubRepository = Depends(get_hub_repo),
     _: None = Depends(require_admin),
 ) -> HubResponse:
     try:
-        hub = hub_use_cases.get_hub(UUID(hub_id), hub_repo)
+        hub = await hub_use_cases.get_hub(UUID(hub_id), hub_repo)
     except HubNotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
     return _to_response(hub)
 
 
 @router.post("", response_model=HubResponse, status_code=201)
-def create_hub(
+async def create_hub(
     body: CreateHubRequest,
     hub_repo: HubRepository = Depends(get_hub_repo),
     _: None = Depends(require_admin),
@@ -81,14 +81,14 @@ def create_hub(
         status=HubStatus.ACTIVE,
     )
     try:
-        created = hub_use_cases.create_hub(hub, hub_repo)
+        created = await hub_use_cases.create_hub(hub, hub_repo)
     except ValidationFailed as e:
         raise HTTPException(status_code=422, detail=str(e))
     return _to_response(created)
 
 
 @router.put("/{hub_id}", response_model=HubResponse)
-def update_hub(
+async def update_hub(
     hub_id: str,
     body: UpdateHubRequest,
     hub_repo: HubRepository = Depends(get_hub_repo),
@@ -103,7 +103,7 @@ def update_hub(
         status=HubStatus(body.status),
     )
     try:
-        result = hub_use_cases.update_hub(uid, updated, hub_repo)
+        result = await hub_use_cases.update_hub(uid, updated, hub_repo)
     except ValidationFailed as e:
         raise HTTPException(status_code=422, detail=str(e))
     except HubNotFound as e:
@@ -112,12 +112,12 @@ def update_hub(
 
 
 @router.delete("/{hub_id}", status_code=204)
-def delete_hub(
+async def delete_hub(
     hub_id: str,
     hub_repo: HubRepository = Depends(get_hub_repo),
     _: None = Depends(require_admin),
 ) -> None:
     try:
-        hub_use_cases.delete_hub(UUID(hub_id), hub_repo)
+        await hub_use_cases.delete_hub(UUID(hub_id), hub_repo)
     except HubNotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
