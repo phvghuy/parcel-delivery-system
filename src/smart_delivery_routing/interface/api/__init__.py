@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from smart_delivery_routing.infrastructure.firebase import initialize_firebase
 from smart_delivery_routing.infrastructure.sqlalchemy.engine import async_engine, engine
+from smart_delivery_routing.infrastructure.supabase.repositories.auth import jwks_client
 from smart_delivery_routing.infrastructure.telemetry import setup_telemetry
 
 from .routers import auth, delivery_routes, drivers, hubs, notifications, parcels, shipping_requests, truck_trips, trucks, ws, health
@@ -14,6 +15,7 @@ initialize_firebase()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    jwks_client.fetch_data()
     with engine.connect():
         pass
     async with async_engine.connect():

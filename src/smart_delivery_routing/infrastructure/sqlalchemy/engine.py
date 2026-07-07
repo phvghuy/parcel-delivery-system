@@ -45,3 +45,9 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+async def get_readonly_async_session() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionFactory() as session:
+        await session.connection(execution_options={"isolation_level": "AUTOCOMMIT"})
+        yield session

@@ -6,7 +6,7 @@ from smart_delivery_routing.application import hub_use_cases
 from smart_delivery_routing.application.hub_use_cases import HubNotFound, ValidationFailed
 from smart_delivery_routing.domain.linehaul import Hub, HubQuery, HubRepository, HubStatus, HubType
 from smart_delivery_routing.domain.shared import Address, Location
-from ..dependencies import get_hub_repo, require_admin
+from ..dependencies import get_hub_repo, get_readonly_hub_repo, require_admin
 from ..schemas import CreateHubRequest, HubResponse, PaginatedHubResponse, UpdateHubRequest
 
 router = APIRouter(prefix="/hubs", tags=["hubs"])
@@ -33,7 +33,7 @@ async def list_hubs(
     statuses: list[int] | None = Query(None, description="Lọc theo status: ?statuses=0&statuses=1"),
     types: list[int] | None = Query(None, description="Lọc theo loại hub: ?types=1&types=2"),
     include_deleted: bool = Query(False),
-    hub_repo: HubRepository = Depends(get_hub_repo),
+    hub_repo: HubRepository = Depends(get_readonly_hub_repo),
     _: None = Depends(require_admin),
 ) -> PaginatedHubResponse:
     query = HubQuery(
@@ -57,7 +57,7 @@ async def list_hubs(
 @router.get("/{hub_id}", response_model=HubResponse)
 async def get_hub(
     hub_id: str,
-    hub_repo: HubRepository = Depends(get_hub_repo),
+    hub_repo: HubRepository = Depends(get_readonly_hub_repo),
     _: None = Depends(require_admin),
 ) -> HubResponse:
     try:

@@ -21,12 +21,12 @@ from smart_delivery_routing.infrastructure.supabase.repositories.drivers import 
 
 from smart_delivery_routing.infrastructure.supabase.repositories.trucks import SupabaseTruckRepository
 from smart_delivery_routing.infrastructure.supabase.repositories.notifications import SupabaseNotificationRepository
-from smart_delivery_routing.infrastructure.supabase.repositories.parcels import SupabaseParcelRepository
+from smart_delivery_routing.infrastructure.sqlalchemy.repositories.parcels import SQLAlchemyParcelRepository
 from smart_delivery_routing.infrastructure.supabase.repositories.truck_trip_items import SupabaseTruckTripItemRepository
 from smart_delivery_routing.infrastructure.supabase.repositories.truck_trips import SupabaseTruckTripRepository
 from smart_delivery_routing.infrastructure.supabase.repositories.shipping_requests import SupabaseShippingRequestRepository
 from smart_delivery_routing.infrastructure.supabase.repositories.tracking_events import SupabaseTrackingEventRepository
-from smart_delivery_routing.infrastructure.sqlalchemy.engine import get_async_session
+from smart_delivery_routing.infrastructure.sqlalchemy.engine import get_async_session, get_readonly_async_session
 from smart_delivery_routing.infrastructure.sqlalchemy.repositories.hubs import SQLAlchemyHubRepository
 
 _auth_service = SupabaseAuthService()
@@ -42,8 +42,12 @@ def _authed_client(token: str) -> Client:
     return client
 
 
-def get_parcel_repo(token=Depends(_security)) -> ParcelRepository:
-    return SupabaseParcelRepository(_authed_client(token.credentials))
+def get_parcel_repo(session: AsyncSession = Depends(get_async_session)) -> ParcelRepository:
+    return SQLAlchemyParcelRepository(session)
+
+
+def get_readonly_parcel_repo(session: AsyncSession = Depends(get_readonly_async_session)) -> ParcelRepository:
+    return SQLAlchemyParcelRepository(session)
 
 
 def get_truck_trip_repo(token=Depends(_security)) -> TruckTripRepository:
@@ -71,6 +75,10 @@ def get_truck_repo(token=Depends(_security)) -> TruckRepository:
 
 
 def get_hub_repo(session: AsyncSession = Depends(get_async_session)) -> HubRepository:
+    return SQLAlchemyHubRepository(session)
+
+
+def get_readonly_hub_repo(session: AsyncSession = Depends(get_readonly_async_session)) -> HubRepository:
     return SQLAlchemyHubRepository(session)
 
 

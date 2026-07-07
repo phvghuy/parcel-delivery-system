@@ -76,14 +76,14 @@ def _decode_cursor(cursor: str) -> tuple[datetime, UUID]:
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
-def _get_or_raise(parcel_id: UUID, repo: ParcelRepository) -> Parcel:
-    parcel = repo.get_by_id(parcel_id)
+async def _get_or_raise(parcel_id: UUID, repo: ParcelRepository) -> Parcel:
+    parcel = await repo.get_by_id(parcel_id)
     if parcel is None:
         raise ParcelNotFound(parcel_id=parcel_id)
     return parcel
 
 
-def _transition(
+async def _transition(
     parcel: Parcel,
     new_status: ParcelStatus,
     new_current_hub_id: UUID | None,
@@ -113,7 +113,7 @@ def _transition(
             current_hub_name=new_current_hub_name,
             updated_at=now,
         )
-        parcel_repo.update(updated)
+        await parcel_repo.update(updated)
         tracking_repo.create(TrackingEvent(
             id=uuid4(),
             parcel_id=parcel.id,
@@ -122,17 +122,16 @@ def _transition(
             note=note,
             created_at=now,
         ))
-    # Return locally-built object để giữ nguyên hub names (update response không có JOIN)
     return updated
 
 
 # ── Read use cases ────────────────────────────────────────────────────────────
 
-def get_parcel(parcel_id: UUID, repo: ParcelRepository) -> Parcel:
-    return _get_or_raise(parcel_id, repo)
+async def get_parcel(parcel_id: UUID, repo: ParcelRepository) -> Parcel:
+    return await _get_or_raise(parcel_id, repo)
 
 
-def list_parcels(
+async def list_parcels(
     query: ParcelQuery,
     repo: ParcelRepository,
     cursor: str | None = None,
@@ -145,7 +144,7 @@ def list_parcels(
             cursor_created_at=cursor_created_at,
             cursor_id=cursor_id,
         )
-    rows = repo.list(query)
+    rows = await repo.list(query)
     has_next = len(rows) > query.page_size
     items = rows[:query.page_size]
     next_cursor = _encode_cursor(items[-1]) if has_next and items else None
@@ -154,7 +153,7 @@ def list_parcels(
 
 # ── Write use cases ───────────────────────────────────────────────────────────
 
-def create_parcel(
+async def create_parcel(
     parcel_id: UUID,
     shipping_request_id: UUID,
     origin_hub_id: UUID,
@@ -166,7 +165,6 @@ def create_parcel(
     parcel_repo: ParcelRepository,
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
-    """Tạo parcel mới khi shipping request được chấp nhận."""
     event_id = uuid4()
     now = datetime.now(timezone.utc)
 
@@ -185,7 +183,7 @@ def create_parcel(
         destination_hub_name=destination_hub_name,
         current_hub_name="",
     )
-    parcel_repo.create(parcel)
+    await parcel_repo.create(parcel)
     tracking_repo.create(TrackingEvent(
         id=event_id,
         parcel_id=parcel_id,
@@ -199,7 +197,7 @@ def create_parcel(
 
 # ── Business use cases ────────────────────────────────────────────────────────
 
-def pickup_parcel(
+async def pickup_parcel(
     parcel_id: UUID,
     driver_id: UUID,
     driver_name: str,
@@ -207,8 +205,8 @@ def pickup_parcel(
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
     """Tài xế đã đến chỗ người bán và lấy hàng."""
-    parcel = _get_or_raise(parcel_id, parcel_repo)
-    return _transition(
+    parcel = await _get_or_raise(parcel_id, parcel_repo)
+    return await _transition(
         parcel,
         new_status=ParcelStatus.PICKED_UP,
         new_current_hub_id=None,
@@ -220,7 +218,7 @@ def pickup_parcel(
     )
 
 
-def deliver_to_origin_hub(
+async def deliver_to_origin_hub(
     parcel_id: UUID,
     hub_id: UUID,
     hub_name: str,
@@ -228,8 +226,8 @@ def deliver_to_origin_hub(
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
     """Tài xế đã mang hàng đến sorting center đầu tiên."""
-    parcel = _get_or_raise(parcel_id, parcel_repo)
-    return _transition(
+    parcel = await _get_or_raise(parcel_id, parcel_repo)
+    return await _transition(
         parcel,
         new_status=ParcelStatus.AT_ORIGIN_HUB,
         new_current_hub_id=hub_id,
@@ -241,7 +239,7 @@ def deliver_to_origin_hub(
     )
 
 
-def dispatch_linehaul(
+async def dispatch_linehaul(
     parcel_id: UUID,
     truck_trip_id: UUID,
     truck_plate: str,
@@ -249,8 +247,8 @@ def dispatch_linehaul(
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
     """Hàng được xếp lên xe tải linehaul để vận chuyển liên hub."""
-    parcel = _get_or_raise(parcel_id, parcel_repo)
-    return _transition(
+    parcel = await _get_or_raise(parcel_id, parcel_repo)
+    return await _transition(
         parcel,
         new_status=ParcelStatus.IN_LINEHAUL_TRANSIT,
         new_current_hub_id=None,
@@ -262,7 +260,7 @@ def dispatch_linehaul(
     )
 
 
-def arrive_at_destination_hub(
+async def arrive_at_destination_hub(
     parcel_id: UUID,
     hub_id: UUID,
     hub_name: str,
@@ -270,8 +268,8 @@ def arrive_at_destination_hub(
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
     """Xe tải đã đến hub đích, hàng được dỡ xuống."""
-    parcel = _get_or_raise(parcel_id, parcel_repo)
-    return _transition(
+    parcel = await _get_or_raise(parcel_id, parcel_repo)
+    return await _transition(
         parcel,
         new_status=ParcelStatus.AT_DESTINATION_HUB,
         new_current_hub_id=hub_id,
@@ -283,7 +281,7 @@ def arrive_at_destination_hub(
     )
 
 
-def dispatch_for_delivery(
+async def dispatch_for_delivery(
     parcel_id: UUID,
     driver_id: UUID,
     driver_name: str,
@@ -291,8 +289,8 @@ def dispatch_for_delivery(
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
     """Tài xế lấy hàng từ hub đích để đi giao cho người nhận."""
-    parcel = _get_or_raise(parcel_id, parcel_repo)
-    return _transition(
+    parcel = await _get_or_raise(parcel_id, parcel_repo)
+    return await _transition(
         parcel,
         new_status=ParcelStatus.OUT_FOR_DELIVERY,
         new_current_hub_id=parcel.current_hub_id,
@@ -304,7 +302,7 @@ def dispatch_for_delivery(
     )
 
 
-def confirm_delivery(
+async def confirm_delivery(
     parcel_id: UUID,
     receiver_name: str,
     note: str | None,
@@ -312,8 +310,8 @@ def confirm_delivery(
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
     """Giao hàng thành công, người nhận đã ký nhận."""
-    parcel = _get_or_raise(parcel_id, parcel_repo)
-    return _transition(
+    parcel = await _get_or_raise(parcel_id, parcel_repo)
+    return await _transition(
         parcel,
         new_status=ParcelStatus.DELIVERED,
         new_current_hub_id=None,
@@ -325,15 +323,15 @@ def confirm_delivery(
     )
 
 
-def fail_delivery(
+async def fail_delivery(
     parcel_id: UUID,
     reason: str,
     parcel_repo: ParcelRepository,
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
     """Giao hàng thất bại (vắng nhà, sai địa chỉ, từ chối nhận...)."""
-    parcel = _get_or_raise(parcel_id, parcel_repo)
-    return _transition(
+    parcel = await _get_or_raise(parcel_id, parcel_repo)
+    return await _transition(
         parcel,
         new_status=ParcelStatus.DELIVERY_FAILED,
         new_current_hub_id=parcel.current_hub_id,
@@ -345,7 +343,7 @@ def fail_delivery(
     )
 
 
-def return_parcel(
+async def return_parcel(
     parcel_id: UUID,
     hub_id: UUID,
     hub_name: str,
@@ -353,8 +351,8 @@ def return_parcel(
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
     """Hàng được hoàn về hub (sau khi giao thất bại)."""
-    parcel = _get_or_raise(parcel_id, parcel_repo)
-    return _transition(
+    parcel = await _get_or_raise(parcel_id, parcel_repo)
+    return await _transition(
         parcel,
         new_status=ParcelStatus.RETURNED,
         new_current_hub_id=hub_id,
@@ -366,15 +364,15 @@ def return_parcel(
     )
 
 
-def cancel_parcel(
+async def cancel_parcel(
     parcel_id: UUID,
     reason: str | None,
     parcel_repo: ParcelRepository,
     tracking_repo: TrackingEventRepository,
 ) -> Parcel:
     """Hủy đơn hàng."""
-    parcel = _get_or_raise(parcel_id, parcel_repo)
-    return _transition(
+    parcel = await _get_or_raise(parcel_id, parcel_repo)
+    return await _transition(
         parcel,
         new_status=ParcelStatus.CANCELLED,
         new_current_hub_id=None,

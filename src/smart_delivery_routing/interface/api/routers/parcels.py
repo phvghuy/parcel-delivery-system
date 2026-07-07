@@ -6,7 +6,7 @@ from smart_delivery_routing.application import parcel_use_cases
 from smart_delivery_routing.application.parcel_use_cases import ParcelNotFound
 from smart_delivery_routing.domain.linehaul import Parcel, ParcelQuery, ParcelRepository, ParcelStatus
 from smart_delivery_routing.domain.tracking import TrackingEvent, TrackingEventRepository
-from ..dependencies import get_parcel_repo, get_tracking_event_repo, require_admin
+from ..dependencies import get_readonly_parcel_repo, get_tracking_event_repo, require_admin
 from ..schemas import CursorPagedParcelResponse, ParcelResponse, TrackingEventResponse
 
 router = APIRouter(prefix="/parcels", tags=["parcels"])
@@ -32,18 +32,18 @@ def _to_response(p: Parcel) -> ParcelResponse:
 
 
 @router.get("", response_model=CursorPagedParcelResponse)
-def list_parcels(
+async def list_parcels(
     cursor: str | None = Query(None, description="Opaque cursor từ response trước"),
     size: int = Query(20, ge=1, le=100),
     statuses: list[int] | None = Query(None, description="Lọc theo status: ?statuses=1&statuses=2"),
-    repo: ParcelRepository = Depends(get_parcel_repo),
+    repo: ParcelRepository = Depends(get_readonly_parcel_repo),
     _: None = Depends(require_admin),
 ) -> CursorPagedParcelResponse:
     query = ParcelQuery(
         page_size=size,
         statuses=[ParcelStatus(s) for s in statuses] if statuses else None,
     )
-    page = parcel_use_cases.list_parcels(query, repo, cursor=cursor)
+    page = await parcel_use_cases.list_parcels(query, repo, cursor=cursor)
     return CursorPagedParcelResponse(
         items=[_to_response(p) for p in page.items],
         next_cursor=page.next_cursor,
@@ -64,27 +64,27 @@ def _to_event_response(e: TrackingEvent) -> TrackingEventResponse:
 
 
 @router.get("/{parcel_id}", response_model=ParcelResponse)
-def get_parcel(
+async def get_parcel(
     parcel_id: str,
-    repo: ParcelRepository = Depends(get_parcel_repo),
+    repo: ParcelRepository = Depends(get_readonly_parcel_repo),
     _: None = Depends(require_admin),
 ) -> ParcelResponse:
     try:
-        parcel = parcel_use_cases.get_parcel(UUID(parcel_id), repo)
+        parcel = await parcel_use_cases.get_parcel(UUID(parcel_id), repo)
     except ParcelNotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
     return _to_response(parcel)
 
 
 @router.get("/{parcel_id}/tracking-events", response_model=list[TrackingEventResponse])
-def list_tracking_events(
+async def list_tracking_events(
     parcel_id: str,
-    parcel_repo: ParcelRepository = Depends(get_parcel_repo),
+    parcel_repo: ParcelRepository = Depends(get_readonly_parcel_repo),
     tracking_repo: TrackingEventRepository = Depends(get_tracking_event_repo),
     _: None = Depends(require_admin),
 ) -> list[TrackingEventResponse]:
     try:
-        parcel_use_cases.get_parcel(UUID(parcel_id), parcel_repo)
+        await parcel_use_cases.get_parcel(UUID(parcel_id), parcel_repo)
     except ParcelNotFound as e:
         raise HTTPException(status_code=404, detail=str(e))
     events = tracking_repo.list_by_parcel_id(UUID(parcel_id))
