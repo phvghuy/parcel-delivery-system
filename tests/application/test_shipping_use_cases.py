@@ -64,13 +64,13 @@ class FakeHubRepo(HubRepository):
     def __init__(self, hubs_to_return: list[Hub]):
         self._hubs = hubs_to_return
 
-    def create(self, hub: Hub) -> Hub: return hub
-    def get_by_id(self, hub_id: UUID) -> Hub | None: return None
-    def list(self, query: HubQuery) -> tuple[list[Hub], int]: return [], 0
-    def update(self, hub: Hub) -> Hub: return hub
-    def delete(self, hub_id: UUID) -> None: pass
+    async def create(self, hub: Hub) -> Hub: return hub
+    async def get_by_id(self, hub_id: UUID) -> Hub | None: return None
+    async def list(self, query: HubQuery) -> tuple[list[Hub], int]: return [], 0
+    async def update(self, hub: Hub) -> Hub: return hub
+    async def delete(self, hub_id: UUID) -> None: pass
 
-    def find_nearest(self, location: Location, limit: int = 1) -> list[Hub]:
+    async def find_nearest(self, location: Location, limit: int = 1) -> list[Hub]:
         return self._hubs[:limit]
 
 
@@ -78,13 +78,13 @@ class FakeParcelRepo(ParcelRepository):
     def __init__(self):
         self.created: list[Parcel] = []
 
-    def create(self, parcel: Parcel) -> Parcel:
+    async def create(self, parcel: Parcel) -> Parcel:
         self.created.append(parcel)
         return parcel
 
-    def get_by_id(self, parcel_id: UUID) -> Parcel | None: return None
-    def list(self, query: ParcelQuery) -> list[Parcel]: return []
-    def update(self, parcel: Parcel) -> Parcel: return parcel
+    async def get_by_id(self, parcel_id: UUID) -> Parcel | None: return None
+    async def list(self, query: ParcelQuery) -> list[Parcel]: return []
+    async def update(self, parcel: Parcel) -> Parcel: return parcel
 
 
 class FakeTrackingRepo(TrackingEventRepository):
@@ -186,61 +186,67 @@ def test_create_validation_failed_does_not_enqueue():
 
 # ── process_shipping_request ──────────────────────────────────────────────────
 
-def test_process_accepted_when_both_hubs_found():
+@pytest.mark.anyio
+async def test_process_accepted_when_both_hubs_found():
     shipping_repo, hub_repo, parcel_repo, tracking_repo = _make_repos([_make_hub()])
     request = _make_request()
     shipping_repo.create(request)
 
-    process_shipping_request(request.id, shipping_repo, hub_repo, parcel_repo, tracking_repo)
+    await process_shipping_request(request.id, shipping_repo, hub_repo, parcel_repo, tracking_repo)
 
     assert shipping_repo.get_by_id(request.id).status == ShippingRequestStatus.ACCEPTED
 
 
-def test_process_accepted_creates_parcel():
+@pytest.mark.anyio
+async def test_process_accepted_creates_parcel():
     shipping_repo, hub_repo, parcel_repo, tracking_repo = _make_repos([_make_hub()])
     request = _make_request()
     shipping_repo.create(request)
 
-    process_shipping_request(request.id, shipping_repo, hub_repo, parcel_repo, tracking_repo)
+    await process_shipping_request(request.id, shipping_repo, hub_repo, parcel_repo, tracking_repo)
 
     assert len(parcel_repo.created) == 1
 
 
-def test_process_parcel_links_to_shipping_request():
+@pytest.mark.anyio
+async def test_process_parcel_links_to_shipping_request():
     shipping_repo, hub_repo, parcel_repo, tracking_repo = _make_repos([_make_hub()])
     request = _make_request()
     shipping_repo.create(request)
 
-    process_shipping_request(request.id, shipping_repo, hub_repo, parcel_repo, tracking_repo)
+    await process_shipping_request(request.id, shipping_repo, hub_repo, parcel_repo, tracking_repo)
 
     assert parcel_repo.created[0].shipping_request_id == request.id
 
 
-def test_process_rejected_when_no_hubs():
+@pytest.mark.anyio
+async def test_process_rejected_when_no_hubs():
     shipping_repo, hub_repo, parcel_repo, tracking_repo = _make_repos([])
     request = _make_request()
     shipping_repo.create(request)
 
-    process_shipping_request(request.id, shipping_repo, hub_repo, parcel_repo, tracking_repo)
+    await process_shipping_request(request.id, shipping_repo, hub_repo, parcel_repo, tracking_repo)
 
     assert shipping_repo.get_by_id(request.id).status == ShippingRequestStatus.REJECTED
 
 
-def test_process_rejected_does_not_create_parcel():
+@pytest.mark.anyio
+async def test_process_rejected_does_not_create_parcel():
     shipping_repo, hub_repo, parcel_repo, tracking_repo = _make_repos([])
     request = _make_request()
     shipping_repo.create(request)
 
-    process_shipping_request(request.id, shipping_repo, hub_repo, parcel_repo, tracking_repo)
+    await process_shipping_request(request.id, shipping_repo, hub_repo, parcel_repo, tracking_repo)
 
     assert len(parcel_repo.created) == 0
 
 
-def test_process_raises_not_found():
+@pytest.mark.anyio
+async def test_process_raises_not_found():
     shipping_repo, hub_repo, parcel_repo, tracking_repo = _make_repos([_make_hub()])
 
     with pytest.raises(ShippingRequestNotFound):
-        process_shipping_request(uuid4(), shipping_repo, hub_repo, parcel_repo, tracking_repo)
+        await process_shipping_request(uuid4(), shipping_repo, hub_repo, parcel_repo, tracking_repo)
 
 
 # ── get_shipping_request ──────────────────────────────────────────────────────

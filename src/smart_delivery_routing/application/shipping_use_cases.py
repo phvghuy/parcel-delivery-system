@@ -110,7 +110,7 @@ def create_shipping_request(
     return saved
 
 
-def process_shipping_request(
+async def process_shipping_request(
     request_id: UUID,
     shipping_repo: ShippingRequestRepository,
     hub_repo: HubRepository,
@@ -125,17 +125,17 @@ def process_shipping_request(
             raise ShippingRequestNotFound(request_id=request_id)
 
         with tracer.start_as_current_span("hub.find_nearest_origin"):
-            origin_hubs = hub_repo.find_nearest(request.pickup_address.location)
+            origin_hubs = await hub_repo.find_nearest(request.pickup_address.location)
 
         with tracer.start_as_current_span("hub.find_nearest_destination"):
-            dest_hubs = hub_repo.find_nearest(request.delivery_address.location)
+            dest_hubs = await hub_repo.find_nearest(request.delivery_address.location)
 
         origin_hub = origin_hubs[0] if origin_hubs else None
         dest_hub = dest_hubs[0] if dest_hubs else None
 
         if origin_hub and dest_hub:
             with tracer.start_as_current_span("parcel.create"):
-                create_parcel(
+                await create_parcel(
                     parcel_id=uuid4(),
                     shipping_request_id=request_id,
                     origin_hub_id=origin_hub.id,

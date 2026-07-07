@@ -67,20 +67,22 @@ def test_get_truck_trip_returns_existing_trip():
 
 def test_get_truck_trip_raises_not_found_when_missing():
     trip_repo = FakeTruckTripRepo()
-    
+
     with pytest.raises(TruckTripNotFound):
         get_truck_trip(trip_id=uuid4(), repo=trip_repo)
 
 
 # Depart Trip
-def test_depart_trip_transitions_to_departed():
+
+@pytest.mark.anyio
+async def test_depart_trip_transitions_to_departed():
     trip_repo = FakeTruckTripRepo()
     trip = make_truck_trip()
     trip_repo.create(trip)
     parcel_repo = FakeParcelRepo()
     item_repo = FakeTruckTripItemRepo(parcel_repo)
 
-    result = depart_trip(
+    result = await depart_trip(
         trip_id=trip.id,
         trip_repo=trip_repo,
         item_repo=item_repo,
@@ -91,9 +93,10 @@ def test_depart_trip_transitions_to_departed():
 
     assert result.status == TruckTripStatus.DEPARTED
 
-def test_depart_trip_raises_not_found_when_missing():
+@pytest.mark.anyio
+async def test_depart_trip_raises_not_found_when_missing():
     with pytest.raises(TruckTripNotFound):
-        depart_trip(
+        await depart_trip(
             trip_id=uuid4(),
             trip_repo=FakeTruckTripRepo(),
             item_repo=FakeTruckTripItemRepo(FakeParcelRepo()),
@@ -102,7 +105,8 @@ def test_depart_trip_raises_not_found_when_missing():
             tracking_repo=FakeTrackingRepo(),
         )
 
-def test_depart_trip_raises_cannot_depart_when_already_departed():
+@pytest.mark.anyio
+async def test_depart_trip_raises_cannot_depart_when_already_departed():
     trip_repo = FakeTruckTripRepo()
     trip = make_truck_trip(status=TruckTripStatus.DEPARTED)
     trip_repo.create(trip)
@@ -110,7 +114,7 @@ def test_depart_trip_raises_cannot_depart_when_already_departed():
     item_repo = FakeTruckTripItemRepo(parcel_repo)
 
     with pytest.raises(TruckTripCannotDepart):
-        depart_trip(
+        await depart_trip(
             trip_id=trip.id,
             trip_repo=trip_repo,
             item_repo=item_repo,
@@ -119,7 +123,8 @@ def test_depart_trip_raises_cannot_depart_when_already_departed():
             tracking_repo=FakeTrackingRepo(),
         )
 
-def test_depart_trip_updates_truck_status_to_in_transit():
+@pytest.mark.anyio
+async def test_depart_trip_updates_truck_status_to_in_transit():
     trip_repo = FakeTruckTripRepo()
     parcel_repo = FakeParcelRepo()
     item_repo = FakeTruckTripItemRepo(parcel_repo)
@@ -129,7 +134,7 @@ def test_depart_trip_updates_truck_status_to_in_transit():
     trip = make_truck_trip(truck_id=truck.id)
     trip_repo.create(trip)
 
-    depart_trip(
+    await depart_trip(
         trip_id=trip.id,
         trip_repo=trip_repo,
         item_repo=item_repo,
@@ -141,7 +146,8 @@ def test_depart_trip_updates_truck_status_to_in_transit():
     updated_truck = truck_repo.get_by_id(truck.id)
     assert updated_truck.status == TruckStatus.IN_TRANSIT
 
-def test_depart_trip_dispatches_parcels_in_trip():
+@pytest.mark.anyio
+async def test_depart_trip_dispatches_parcels_in_trip():
     trip_repo = FakeTruckTripRepo()
     truck_repo = FakeTruckRepo()
     parcel_repo = FakeParcelRepo()
@@ -156,7 +162,7 @@ def test_depart_trip_dispatches_parcels_in_trip():
 
     parcels = [make_parcel(status=ParcelStatus.AT_ORIGIN_HUB) for _ in range(5)]
     for parcel in parcels:
-        parcel_repo.create(parcel)
+        await parcel_repo.create(parcel)
         item_repo.create(TruckTripItem(
             id=uuid4(),
             truck_trip_id=trip.id,
@@ -164,7 +170,7 @@ def test_depart_trip_dispatches_parcels_in_trip():
             loaded_at=datetime.now(timezone.utc),
         ))
 
-    depart_trip(
+    await depart_trip(
         trip_id=trip.id,
         trip_repo=trip_repo,
         item_repo=item_repo,
@@ -174,13 +180,14 @@ def test_depart_trip_dispatches_parcels_in_trip():
     )
 
     for parcel in parcels:
-        updated = parcel_repo.get_by_id(parcel.id)
+        updated = await parcel_repo.get_by_id(parcel.id)
         assert updated.status == ParcelStatus.IN_LINEHAUL_TRANSIT
 
 
 # Arrive Trip
 
-def test_arrive_trip_transitions_to_arrived():
+@pytest.mark.anyio
+async def test_arrive_trip_transitions_to_arrived():
     truck_repo = FakeTruckRepo()
     trip_repo = FakeTruckTripRepo()
     parcel_repo = FakeParcelRepo()
@@ -189,7 +196,7 @@ def test_arrive_trip_transitions_to_arrived():
     trip = make_truck_trip(status=TruckTripStatus.DEPARTED)
     trip_repo.create(trip)
 
-    result = arrive_trip(
+    result = await arrive_trip(
         trip_id=trip.id,
         trip_repo=trip_repo,
         item_repo=item_repo,
@@ -200,7 +207,8 @@ def test_arrive_trip_transitions_to_arrived():
 
     assert result.status == TruckTripStatus.ARRIVED
 
-def test_arrive_trip_raises_cannot_arrive_when_planned():
+@pytest.mark.anyio
+async def test_arrive_trip_raises_cannot_arrive_when_planned():
     truck_repo = FakeTruckRepo()
     trip_repo = FakeTruckTripRepo()
     parcel_repo = FakeParcelRepo()
@@ -210,7 +218,7 @@ def test_arrive_trip_raises_cannot_arrive_when_planned():
     trip_repo.create(trip)
 
     with pytest.raises(TruckTripCannotArrive):
-        arrive_trip(
+        await arrive_trip(
             trip_id=trip.id,
             trip_repo=trip_repo,
             item_repo=item_repo,
@@ -219,7 +227,8 @@ def test_arrive_trip_raises_cannot_arrive_when_planned():
             tracking_repo=tracking_repo,
         )
 
-def test_arrive_trip_updates_truck_status_to_available():
+@pytest.mark.anyio
+async def test_arrive_trip_updates_truck_status_to_available():
     truck_repo = FakeTruckRepo()
     trip_repo = FakeTruckTripRepo()
     parcel_repo = FakeParcelRepo()
@@ -231,7 +240,7 @@ def test_arrive_trip_updates_truck_status_to_available():
     trip = make_truck_trip(status=TruckTripStatus.DEPARTED, truck_id=truck.id)
     trip_repo.create(trip)
 
-    arrive_trip(
+    await arrive_trip(
         trip_id=trip.id,
         trip_repo=trip_repo,
         item_repo=item_repo,
@@ -267,7 +276,8 @@ def test_delete_truck_trip_raises_not_deletable_when_departed():
 
 # Add Parcel to Trip
 
-def test_add_parcel_to_trip_succeeds():
+@pytest.mark.anyio
+async def test_add_parcel_to_trip_succeeds():
     trip_repo = FakeTruckTripRepo()
     truck_repo = FakeTruckRepo()
     parcel_repo = FakeParcelRepo()
@@ -284,15 +294,16 @@ def test_add_parcel_to_trip_succeeds():
         origin_hub_id=trip.origin_hub_id,
         destination_hub_id=trip.destination_hub_id,
     )
-    parcel_repo.create(parcel)
+    await parcel_repo.create(parcel)
 
-    result = add_parcel_to_trip(trip.id, parcel.id, trip_repo, item_repo, parcel_repo, truck_repo)
+    result = await add_parcel_to_trip(trip.id, parcel.id, trip_repo, item_repo, parcel_repo, truck_repo)
 
     assert result.parcel_id == parcel.id
     assert result.truck_trip_id == trip.id
 
 
-def test_add_parcel_to_trip_raises_parcel_not_found():
+@pytest.mark.anyio
+async def test_add_parcel_to_trip_raises_parcel_not_found():
     trip_repo = FakeTruckTripRepo()
     truck_repo = FakeTruckRepo()
     parcel_repo = FakeParcelRepo()
@@ -302,10 +313,11 @@ def test_add_parcel_to_trip_raises_parcel_not_found():
     trip_repo.create(trip)
 
     with pytest.raises(ParcelNotFound):
-        add_parcel_to_trip(trip.id, uuid4(), trip_repo, item_repo, parcel_repo, truck_repo)
+        await add_parcel_to_trip(trip.id, uuid4(), trip_repo, item_repo, parcel_repo, truck_repo)
 
 
-def test_add_parcel_to_trip_raises_invalid_when_parcel_not_at_origin_hub():
+@pytest.mark.anyio
+async def test_add_parcel_to_trip_raises_invalid_when_parcel_not_at_origin_hub():
     trip_repo = FakeTruckTripRepo()
     truck_repo = FakeTruckRepo()
     parcel_repo = FakeParcelRepo()
@@ -319,13 +331,14 @@ def test_add_parcel_to_trip_raises_invalid_when_parcel_not_at_origin_hub():
         origin_hub_id=trip.origin_hub_id,
         destination_hub_id=trip.destination_hub_id,
     )
-    parcel_repo.create(parcel)
+    await parcel_repo.create(parcel)
 
     with pytest.raises(InvalidParcelForTrip):
-        add_parcel_to_trip(trip.id, parcel.id, trip_repo, item_repo, parcel_repo, truck_repo)
+        await add_parcel_to_trip(trip.id, parcel.id, trip_repo, item_repo, parcel_repo, truck_repo)
 
 
-def test_add_parcel_to_trip_raises_capacity_exceeded():
+@pytest.mark.anyio
+async def test_add_parcel_to_trip_raises_capacity_exceeded():
     trip_repo = FakeTruckTripRepo()
     truck_repo = FakeTruckRepo()
     parcel_repo = FakeParcelRepo()
@@ -343,10 +356,10 @@ def test_add_parcel_to_trip_raises_capacity_exceeded():
         destination_hub_id=trip.destination_hub_id,
         load=Load(weight=1.0, volume=1.0),
     )
-    parcel_repo.create(parcel)
+    await parcel_repo.create(parcel)
 
     with pytest.raises(CapacityExceeded):
-        add_parcel_to_trip(trip.id, parcel.id, trip_repo, item_repo, parcel_repo, truck_repo)
+        await add_parcel_to_trip(trip.id, parcel.id, trip_repo, item_repo, parcel_repo, truck_repo)
 
 
 # Remove Parcel from Trip

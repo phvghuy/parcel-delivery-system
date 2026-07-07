@@ -14,20 +14,20 @@ class FakeParcelRepo(ParcelRepository):
     def __init__(self):
         self._store: list[Parcel] = []
 
-    def create(self, parcel: Parcel) -> Parcel:
+    async def create(self, parcel: Parcel) -> Parcel:
         self._store.append(parcel)
         return parcel
 
-    def get_by_id(self, parcel_id: UUID) -> Parcel | None:
+    async def get_by_id(self, parcel_id: UUID) -> Parcel | None:
         for p in self._store:
             if p.id == parcel_id:
                 return p
         return None
 
-    def list(self, query: ParcelQuery) -> list[Parcel]:
+    async def list(self, query: ParcelQuery) -> list[Parcel]:
         return list(self._store)
 
-    def update(self, parcel: Parcel) -> Parcel:
+    async def update(self, parcel: Parcel) -> Parcel:
         for i, p in enumerate(self._store):
             if p.id == parcel.id:
                 self._store[i] = parcel
@@ -126,7 +126,7 @@ class FakeTruckTripItemRepo(TruckTripItemRepository):
         total_weight = 0.0
         total_volume = 0.0
         for item in items:
-            parcel = self._parcel_repo.get_by_id(item.parcel_id)
+            parcel = next((p for p in self._parcel_repo._store if p.id == item.parcel_id), None)
             if parcel is not None:
                 total_weight += parcel.load.weight
                 total_volume += parcel.load.volume

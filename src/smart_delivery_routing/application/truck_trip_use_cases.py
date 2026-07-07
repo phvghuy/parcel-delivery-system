@@ -113,7 +113,7 @@ class TruckTripCannotDepart(Exception):
         )
 
 
-def depart_trip(
+async def depart_trip(
     trip_id: UUID,
     trip_repo: TruckTripRepository,
     item_repo: TruckTripItemRepository,
@@ -146,7 +146,7 @@ def depart_trip(
 
         for item in items:
             try:
-                dispatch_linehaul(
+                await dispatch_linehaul(
                     parcel_id=item.parcel_id,
                     truck_trip_id=trip_id,
                     truck_plate=trip.truck_plate_number,
@@ -171,7 +171,7 @@ class TruckTripCannotArrive(Exception):
         )
 
 
-def arrive_trip(
+async def arrive_trip(
     trip_id: UUID,
     trip_repo: TruckTripRepository,
     item_repo: TruckTripItemRepository,
@@ -201,10 +201,10 @@ def arrive_trip(
         items = item_repo.list_by_trip_id(trip_id)
 
         span.set_attribute("parcel_count", len(items))
-        
+
         for item in items:
             try:
-                arrive_at_destination_hub(
+                await arrive_at_destination_hub(
                     parcel_id=item.parcel_id,
                     hub_id=trip.destination_hub_id,
                     hub_name=trip.destination_hub_name,
@@ -282,7 +282,7 @@ class TruckTripItemNotRemovable(Exception):
 
 # ── TruckTripItem use cases ───────────────────────────────────────────────────
 
-def add_parcel_to_trip(
+async def add_parcel_to_trip(
     trip_id: UUID,
     parcel_id: UUID,
     trip_repo: TruckTripRepository,
@@ -292,7 +292,7 @@ def add_parcel_to_trip(
 ) -> TruckTripItem:
     trip = _get_or_raise(trip_id, trip_repo)
 
-    parcel: Parcel | None = parcel_repo.get_by_id(parcel_id)
+    parcel: Parcel | None = await parcel_repo.get_by_id(parcel_id)
     if parcel is None:
         raise ParcelNotFound(parcel_id=parcel_id)
 

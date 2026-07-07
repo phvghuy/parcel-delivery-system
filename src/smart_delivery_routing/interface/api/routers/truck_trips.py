@@ -118,7 +118,7 @@ def delete_truck_trip(
 
 
 @router.post("/{trip_id}/depart", response_model=TruckTripResponse)
-def depart_trip(
+async def depart_trip(
     trip_id: str,
     trip_repo: TruckTripRepository = Depends(get_truck_trip_repo),
     item_repo: TruckTripItemRepository = Depends(get_truck_trip_item_repo),
@@ -128,7 +128,7 @@ def depart_trip(
     _: None = Depends(require_admin),
 ) -> TruckTripResponse:
     try:
-        trip = truck_trip_use_cases.depart_trip(
+        trip = await truck_trip_use_cases.depart_trip(
             trip_id=UUID(trip_id),
             trip_repo=trip_repo,
             item_repo=item_repo,
@@ -144,7 +144,7 @@ def depart_trip(
 
 
 @router.post("/{trip_id}/arrive", response_model=TruckTripResponse)
-def arrive_trip(
+async def arrive_trip(
     trip_id: str,
     trip_repo: TruckTripRepository = Depends(get_truck_trip_repo),
     item_repo: TruckTripItemRepository = Depends(get_truck_trip_item_repo),
@@ -154,7 +154,7 @@ def arrive_trip(
     _: None = Depends(require_admin),
 ) -> TruckTripResponse:
     try:
-        trip = truck_trip_use_cases.arrive_trip(
+        trip = await truck_trip_use_cases.arrive_trip(
             trip_id=UUID(trip_id),
             trip_repo=trip_repo,
             item_repo=item_repo,
@@ -210,7 +210,7 @@ def list_trip_items(
 
 
 @router.post("/{trip_id}/items", response_model=TruckTripItemResponse, status_code=201)
-def add_parcel_to_trip(
+async def add_parcel_to_trip(
     trip_id: str,
     body: AddParcelToTripRequest,
     trip_repo: TruckTripRepository = Depends(get_truck_trip_repo),
@@ -220,7 +220,7 @@ def add_parcel_to_trip(
     _: None = Depends(require_admin),
 ) -> TruckTripItemResponse:
     try:
-        item = truck_trip_use_cases.add_parcel_to_trip(
+        item = await truck_trip_use_cases.add_parcel_to_trip(
             trip_id=UUID(trip_id),
             parcel_id=UUID(body.parcel_id),
             trip_repo=trip_repo,

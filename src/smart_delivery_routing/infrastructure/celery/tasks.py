@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -50,13 +51,13 @@ class ShippingRequestTask(Task):
 def handle_shipping_request(self, request_id: str) -> None:
     try:
         client = get_supabase_service_client()
-        shipping_use_cases.process_shipping_request(
+        asyncio.run(shipping_use_cases.process_shipping_request(
             request_id=UUID(request_id),
             shipping_repo=SupabaseShippingRequestRepository(client),
             hub_repo=SupabaseHubRepository(client),
             parcel_repo=SupabaseParcelRepository(client),
             tracking_repo=SupabaseTrackingEventRepository(client),
-        )
+        ))
     except HTTPStatusError as e:
         if e.response.status_code >= 500:
             raise self.retry(exc=e)
