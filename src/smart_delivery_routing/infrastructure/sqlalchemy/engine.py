@@ -13,6 +13,7 @@ engine = create_engine(
     pool_size=10,
     max_overflow=20,
     pool_recycle=1800,
+    pool_pre_ping=True,
 )
 
 async_engine = create_async_engine(
@@ -20,6 +21,7 @@ async_engine = create_async_engine(
     pool_size=10,
     max_overflow=20,
     pool_recycle=1800,
+    pool_pre_ping=True,
 )
 
 SessionFactory = sessionmaker(bind=engine, expire_on_commit=False)
