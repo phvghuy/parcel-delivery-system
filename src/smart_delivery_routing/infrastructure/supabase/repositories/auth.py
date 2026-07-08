@@ -4,7 +4,7 @@ from jwt import PyJWKClient
 import jwt
 
 
-jwks_client = PyJWKClient(f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json")
+jwks_client = PyJWKClient(f"{SUPABASE_URL}/auth/v1/.well-known/jwks.json", lifespan=86400)
 
 def sign_in(email: str, password: str) -> dict:
     return get_supabase_client().auth.sign_in_with_password({
