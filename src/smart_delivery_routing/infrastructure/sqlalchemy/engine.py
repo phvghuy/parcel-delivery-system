@@ -3,8 +3,11 @@ from typing import AsyncGenerator, Generator
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import Session, sessionmaker
+from opentelemetry import trace
 
 from smart_delivery_routing.config import DATABASE_URL
+
+tracer = trace.get_tracer(__name__)
 
 ASYNC_DATABASE_URL = DATABASE_URL.replace("postgresql+psycopg://", "postgresql+psycopg_async://")
 
@@ -51,5 +54,6 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def get_readonly_async_session() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionFactory() as session:
-        await session.connection(execution_options={"isolation_level": "AUTOCOMMIT"})
+        with tracer.start_as_current_span("db.connection.acquire"):
+            await session.connection(execution_options={"isolation_level": "AUTOCOMMIT"})
         yield session

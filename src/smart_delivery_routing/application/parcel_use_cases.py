@@ -144,7 +144,8 @@ async def list_parcels(
             cursor_created_at=cursor_created_at,
             cursor_id=cursor_id,
         )
-    rows = await repo.list(query)
+    with tracer.start_as_current_span("parcel/list"):
+        rows = await repo.list(query)
     has_next = len(rows) > query.page_size
     items = rows[:query.page_size]
     next_cursor = _encode_cursor(items[-1]) if has_next and items else None

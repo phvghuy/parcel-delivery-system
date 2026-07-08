@@ -1,4 +1,5 @@
 from fastapi import Depends, HTTPException
+from opentelemetry import trace
 from fastapi.security import HTTPBearer
 from supabase import Client
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +35,9 @@ _job_service = CeleryRedisJobService()
 _ws_manager = ConnectionManager()
 
 _security = HTTPBearer()
+
+
+tracer = trace.get_tracer(__name__)
 
 
 def _authed_client(token: str) -> Client:
@@ -107,8 +111,9 @@ def get_current_driver_id(token=Depends(_security)) -> str:
 
 
 def require_admin(token=Depends(_security)) -> None:
-    if get_user_role(token.credentials) != "admin":
-        raise HTTPException(status_code=403, detail="Admin required.")
+    with tracer.start_as_current_span("require_admin"):
+        if get_user_role(token.credentials) != "admin":
+            raise HTTPException(status_code=403, detail="Admin required.")
 
 
 def require_driver(token=Depends(_security)) -> None:
