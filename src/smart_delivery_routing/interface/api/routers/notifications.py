@@ -33,7 +33,7 @@ def list_notifications(
     notification_repo: NotificationRepository = Depends(get_notification_repo),
     _: None = Depends(require_driver),
 ) -> list[NotificationResponse]:
-    return [_to_response(n) for n in notification_repo.get_notifications_by_driver(driver_id)]
+    return [_to_response(n) for n in notification_repo.get_by_driver(driver_id)]
 
 
 @router.patch("/{notification_id}/read", status_code=204)

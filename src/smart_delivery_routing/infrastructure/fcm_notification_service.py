@@ -21,7 +21,7 @@ class FCMNotificationService(NotificationService):
     ) -> None:
         title = "New Delivery Route Assigned"
         body = f"{stops_count} delivery stops · {distance_km:.1f} km"
-        self._repo.create_notification(Notification(
+        self._repo.create(Notification(
             driver_id=driver_id,
             title=title,
             body=body,

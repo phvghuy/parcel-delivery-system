@@ -180,7 +180,7 @@ def _to_item_response(item: TruckTripItem) -> TruckTripItemResponse:
 
 
 @router.get("/{trip_id}/items", response_model=list[TruckTripItemDetailResponse])
-def list_trip_items(
+async def list_trip_items(
     trip_id: str,
     trip_repo: TruckTripRepository = Depends(get_truck_trip_repo),
     item_repo: TruckTripItemRepository = Depends(get_truck_trip_item_repo),
@@ -194,7 +194,7 @@ def list_trip_items(
     items = item_repo.list_by_trip_id(UUID(trip_id))
     result = []
     for item in items:
-        parcel = parcel_repo.get_by_id(item.parcel_id)
+        parcel = await parcel_repo.get_by_id(item.parcel_id)
         if parcel:
             result.append(TruckTripItemDetailResponse(
                 id=str(item.id),

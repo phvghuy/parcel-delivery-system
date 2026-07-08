@@ -46,4 +46,4 @@ jobs:
             --tb=short \
             --cov=src/smart_delivery_routing \
             --cov-report=term-missing \
-            --cov-fail-under=30
+            --cov-fail-under=70
